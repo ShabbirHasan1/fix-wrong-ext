@@ -1,5 +1,7 @@
 #![allow(clippy::collapsible_else_if)]
 
+use std::error::Error;
+
 use camino::Utf8PathBuf;
 use clap::Parser;
 use glob::glob;
@@ -18,12 +20,11 @@ struct Args {
     search_root: Utf8PathBuf,
 }
 
-fn main() {
+fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
     let glob_expression = format!("{}/**/*", args.search_root);
 
-    let search_results: Vec<(Utf8PathBuf, Utf8PathBuf)> = glob(&glob_expression)
-        .unwrap()
+    let search_results: Vec<(Utf8PathBuf, Utf8PathBuf)> = glob(&glob_expression)?
         .filter_map(Result::ok)
         .map(Utf8PathBuf::from_path_buf)
         .filter_map(Result::ok)
@@ -47,9 +48,9 @@ fn main() {
         .collect();
 
     for (path, fixed_path) in search_results {
-        if fixed_path.try_exists().unwrap() {
-            let hash_a = sha256::try_digest(&path).unwrap();
-            let hash_b = sha256::try_digest(&fixed_path).unwrap();
+        if fixed_path.try_exists()? {
+            let hash_a = sha256::try_digest(&path)?;
+            let hash_b = sha256::try_digest(&fixed_path)?;
 
             if hash_a == hash_b {
                 if !args.quiet {
@@ -57,7 +58,7 @@ fn main() {
                 }
 
                 if args.auto_execute {
-                    std::fs::remove_file(path).unwrap();
+                    std::fs::remove_file(path)?;
                 }
             } else {
                 if !args.quiet {
@@ -73,8 +74,10 @@ fn main() {
             }
 
             if args.auto_execute {
-                std::fs::rename(path, fixed_path).unwrap();
+                std::fs::rename(path, fixed_path)?;
             }
         }
     }
+
+    Ok(())
 }
